@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Acid or Base? Test Your Speed!</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f0f4f8; color: #333; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+    .container { width: 100%; max-width: 480px; padding: 20px; }
+    .center { text-align: center; }
+    button, select {
+      cursor: pointer; border: none; border-radius: 4px;
+      padding: 12px 20px; font-size: 16px;
+    }
+    .btn-primary { background: #1e90ff; color: #fff; }
+    .btn-primary:hover { background: #1c86ee; }
+    .btn-secondary { background: #eee; color: #333; margin: 0 5px; }
+    .btn-secondary:hover { background: #ddd; }
+    #timer { font-size: 24px; font-weight: bold; }
+    #question-card {
+      background: #fff; padding: 30px 20px; border-radius: 8px;
+      margin: 20px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .choices { display: flex; justify-content: center; flex-wrap: wrap; margin-top: 20px; gap: 10px; }
+    .progress { display: flex; justify-content: space-between; margin-top: 10px; }
+    .progress-bar {
+      flex: 1; height: 8px; background: #ddd; margin: 0 2px;
+      border-radius: 4px;
+    }
+    .progress-bar.correct { background: #4caf50; }
+    .progress-bar.wrong { background: #f44336; }
+    #feedback { font-size: 18px; margin-top: 10px; min-height: 24px; }
+    #modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); display: none;
+      align-items: center; justify-content: center;
+    }
+    #modal .dialog {
+      background: #fff; padding: 20px; border-radius: 8px;
+      text-align: center; width: 90%; max-width: 320px;
+    }
+    #modal .dialog h2 { margin-bottom: 10px; }
+    #modal .dialog p { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="landing" class="center">
+      <h1>Acid or Base?<br/>Test Your Speed!</h1>
+      <p style="margin: 15px 0; font-size: 16px; line-height: 1.4;">
+        How to play:<br/>
+        - Each stage has 10 questions.<br/>
+        - For each question, select the correct answer from the choices.<br/>
+        - You have 15 seconds per question.<br/>
+        - Reach or exceed the target score to pass the stage.<br/>
+        - Good luck and have fun!
+      </p>
+      <button id="start-btn" class="btn-primary">Start Game</button>
+      <p>Answer ≥ target to pass each level. 15s per question.</p>
+    </div>
+
+    <div id="game" style="display:none;">
+      <div class="center">
+        <div>Stage <span id="stage-num">1</span> / 5</div>
+        <div class="progress" id="progress"></div>
+      </div>
+      <div class="center" style="margin-top:15px;">
+        <span id="timer">15</span>s left
+      </div>
+      <div id="question-card" class="center">
+        <h2 id="substance-name">--</h2>
+      </div>
+      <div class="choices" id="choices"></div>
+      <button id="submit-btn" class="btn-primary" style="display:none;">Submit</button>
+      <div id="feedback" class="center"></div>
+    </div>
+  </div>
+
+  <div id="modal">
+    <div class="dialog">
+      <h2 id="modal-title">Stage Passed!</h2>
+      <p id="modal-text">Score: --</p>
+      <button id="modal-btn" class="btn-primary">Next</button>
+    </div>
+  </div>
+
+  <script>
+    const gameData = [
+      { items: [
+          { name:"Lemon juice", correct:"acidic" },{ name:"Soap", correct:"basic" },
+          { name:"Water", correct:"neutral" },{ name:"Vinegar", correct:"acidic" },
+          { name:"Baking soda", correct:"basic" },{ name:"Tomato juice", correct:"acidic" },
+          { name:"Milk", correct:"neutral" },{ name:"Bleach", correct:"basic" },
+          { name:"Coffee", correct:"acidic" },{ name:"Pure water", correct:"neutral" }
+        ], target:8 },
+      { items: [
+          { name:"Toothpaste", correct:"basic" },{ name:"Cola drink", correct:"acidic" },
+          { name:"Shampoo", correct:"acidic" },{ name:"Ammonia cleaner", correct:"basic" },
+          { name:"Rainwater", correct:"acidic" },{ name:"Antacid tablet", correct:"basic" },
+          { name:"Stomach acid", correct:"acidic" },{ name:"Egg white", correct:"basic" },
+          { name:"Hand soap", correct:"basic" },{ name:"Black coffee", correct:"acidic" }
+        ], target:8 },
+      { items: [
+          { name:"Lemon juice", correct:"red" },{ name:"Bleach", correct:"blue" },
+          { name:"Distilled water", correct:"no change" },{ name:"Vinegar", correct:"red" },
+          { name:"Baking soda solution", correct:"blue" },{ name:"Soda drink", correct:"red" },
+          { name:"Milk", correct:"no change" },{ name:"Detergent", correct:"blue" },
+          { name:"Tomato juice", correct:"red" },{ name:"Drain cleaner", correct:"blue" }
+        ], target:7 },
+      { items: [
+          { name:"Vinegar", correct:"pH 2–3" },{ name:"Soap", correct:"pH 9–10" },
+          { name:"Water", correct:"pH 7" },{ name:"Orange juice", correct:"pH 3–4" },
+          { name:"Detergent", correct:"pH 10–11" },{ name:"Battery acid", correct:"pH 0–1" },
+          { name:"Ammonia", correct:"pH 11–12" },{ name:"Coffee", correct:"pH 5–6" },
+          { name:"Baking soda", correct:"pH 8–9" },{ name:"Milk", correct:"pH 6–7" }
+        ], target:7 },
+      { items: [
+          { name:"Vinegar + baking soda → ?", correct:"Carbon dioxide" },
+          { name:"Acid + base → ?", correct:"Salt and water" },
+          { name:"Acid diluted → pH ?", correct:"Increases" },
+          { name:"Base diluted → pH ?", correct:"Decreases" },
+          { name:"Process name?", correct:"Neutralization" },
+          { name:"Acids release?", correct:"H⁺ ions" },
+          { name:"Bases release?", correct:"OH⁻ ions" },
+          { name:"Reaction heat?", correct:"Increases" },
+          { name:"Blue litmus turns?", correct:"Red" },
+          { name:"Red litmus turns?", correct:"Blue" }
+        ], target:6 }
+    ];
+
+    let stage=1, questionIndex=0, score=0, timerInterval, timeLeft=15;
+
+    const landing = document.getElementById('landing'),
+          game = document.getElementById('game'),
+          startBtn = document.getElementById('start-btn'),
+          stageNum = document.getElementById('stage-num'),
+          progress = document.getElementById('progress'),
+          timerEl = document.getElementById('timer'),
+          nameEl = document.getElementById('substance-name'),
+          choicesEl = document.getElementById('choices'),
+          submitBtn = document.getElementById('submit-btn'),
+          feedbackEl = document.getElementById('feedback'),
+          modal = document.getElementById('modal'),
+          mTitle = document.getElementById('modal-title'),
+          mText = document.getElementById('modal-text'),
+          mBtn = document.getElementById('modal-btn');
+
+    startBtn.onclick = () => {
+      landing.style.display = 'none';
+      startStage();
+    };
+
+    mBtn.onclick = () => {
+      modal.style.display = 'none';
+      if(stage === 5 && score >= gameData[stage-1].target){
+        stage = 1;
+        landing.style.display = 'block';
+        return;
+      }
+      if(score >= gameData[stage-1].target) stage++;
+      startStage();
+    };
+
+    function startStage() {
+      questionIndex = 0;
+      score = 0;
+      stageNum.textContent = stage;
+      shuffleArray(gameData[stage-1].items);
+      buildProgress();
+      renderQuestion();
+      game.style.display = 'block';
+    }
+
+    function buildProgress() {
+      progress.innerHTML = '';
+      gameData[stage-1].items.forEach(_ => {
+        const bar = document.createElement('div');
+        bar.className = 'progress-bar';
+        progress.appendChild(bar);
+      });
+    }
+
+    function renderQuestion() {
+      if(questionIndex >= gameData[stage-1].items.length) {
+        return endStage();
+      }
+      const currentItem = gameData[stage-1].items[questionIndex];
+      nameEl.textContent = currentItem.name;
+      feedbackEl.textContent = '';
+      submitBtn.style.display = 'none';
+      renderChoices(stage, currentItem);
+      resetTimer();
+      startTimer();
+    }
+
+    function renderChoices(stage, currentItem) {
+      choicesEl.innerHTML = '';
+
+      let options = [];
+      if(stage === 1 || stage === 2) {
+        options = [
+          { label: 'Acidic', value: 'acidic' },
+          { label: 'Neutral', value: 'neutral' },
+          { label: 'Basic', value: 'basic' }
+        ];
+      } else if(stage === 3) {
+        options = [
+          { label: 'Red', value: 'red' },
+          { label: 'No Change', value: 'no change' },
+          { label: 'Blue', value: 'blue' }
+        ];
+      } else {
+        const uniqueOpts = [...new Set(gameData[stage-1].items.map(i => i.correct))];
+        options = uniqueOpts.map(o => ({label: o, value: o}));
+      }
+
+      shuffleArray(options);
+
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.textContent = opt.label;
+        btn.className = 'btn-secondary';
+        btn.dataset.value = opt.value;
+        btn.onclick = () => {
+          stopTimer();
+          checkAnswer(opt.value);
+        };
+        choicesEl.appendChild(btn);
+      });
+
+      // For stage 4 & 5, if you want select + submit, can be adapted here. 
+      // For now buttons for all stages to keep simple and consistent.
+    }
+
+    function checkAnswer(selected) {
+      const currentItem = gameData[stage-1].items[questionIndex];
+      const correct = currentItem.correct;
+
+      const isCorrect = selected === correct;
+      if(isCorrect){
+        score++;
+        feedbackEl.textContent = 'Correct!';
+        feedbackEl.style.color = 'green';
+      } else {
+        feedbackEl.textContent = 'Wrong! Correct answer: ' + capitalize(correct);
+        feedbackEl.style.color = 'red';
+      }
+
+      updateProgressBar(isCorrect);
+      questionIndex++;
+
+      setTimeout(() => {
+        renderQuestion();
+      }, 1200);
+    }
+
+    function updateProgressBar(correct) {
+      const bars = progress.children;
+      if(questionIndex < bars.length){
+        bars[questionIndex].className = 'progress-bar ' + (correct ? 'correct' : 'wrong');
+      }
+    }
+
+    function endStage() {
+      game.style.display = 'none';
+      const target = gameData[stage-1].target;
+      if(score >= target){
+        mTitle.textContent = 'Stage ' + stage + ' Passed!';
+        mText.textContent = `Your score: ${score} / 10 (Target: ${target})`;
+        mBtn.textContent = stage === 5 ? 'Restart Game' : 'Next Stage';
+      } else {
+        mTitle.textContent = 'Stage ' + stage + ' Failed!';
+        mText.textContent = `Your score: ${score} / 10 (Target: ${target})\nTry again!`;
+        mBtn.textContent = 'Retry Stage';
+      }
+      modal.style.display = 'flex';
+    }
+
+    function startTimer() {
+      timeLeft = 15;
+      timerEl.textContent = timeLeft;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        timerEl.textContent = timeLeft;
+        if(timeLeft <= 0){
+          stopTimer();
+          feedbackEl.textContent = 'Time\'s up! Moving to next question.';
+          feedbackEl.style.color = 'red';
+          questionIndex++;
+          updateProgressBar(false);
+          setTimeout(() => {
+            renderQuestion();
+          }, 1000);
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function resetTimer() {
+      stopTimer();
+      timerEl.textContent = '15';
+    }
+
+    function shuffleArray(arr) {
+      for(let i=arr.length-1; i>0; i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    function capitalize(str){
+      if(!str) return '';
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+  </script>
+</body>
+</html>
